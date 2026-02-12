@@ -273,18 +273,33 @@ Automated reminder system for pending projects:
 
 See `REMINDER_SYSTEM.md` for complete documentation.
 
+## Frontend Setup (Implemented)
+
+Complete Next.js 15 foundation:
+- **Framework**: Next.js 15 with App Router, React 18, TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui components
+- **State**: Zustand (global) + React Query (server state, 30s polling)
+- **API**: Axios client with auto token refresh
+- **PWA**: next-pwa configured, manifest ready
+- **Components**: Button, Card, Toast, Toaster
+- **Auth Store**: Persistent auth state with tokens
+- **Responsive**: Mobile-first, safe area insets
+
+See `FRONTEND_SETUP_SUMMARY.md` and `frontend/README.md` for details.
+
 ## Known Issues
 
-- Frontend workspace not yet created
+- Frontend feature pages not built (auth, projects, dashboard pending)
 - OAuth routes commented out (needs Passport.js configuration)
 - Test suite not written (Jest configured but no tests)
 - FCM token cleanup not automated (logged but requires manual removal)
 - Reminder digest mode not implemented (individual notifications per project)
+- App icons not generated (manifest references missing files)
 
 ## Next Implementation Priorities
 
-1. **Frontend Setup** - Initialize Next.js 15 workspace
-2. **API Tests** - Jest integration tests for all endpoints
-3. **User Preferences UI** - Frontend for managing notification settings
-4. **Admin Dashboard** - Analytics and monitoring UI
-5. **Webhook System** - External integrations for project events
+1. **Auth Pages** - Login and register UI
+2. **Project Pages** - List, detail, acceptance workflow UI
+3. **Admin Dashboard** - Project creation, user management, analytics
+4. **Notification Center** - Notification list and management UI
+5. **API Tests** - Jest integration tests for all endpoints
