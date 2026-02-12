@@ -1,0 +1,290 @@
+// Prisma Schema for CetaProjectsManager
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER MANAGEMENT
+// ============================================
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model User {
+  id                      String    @id @default(uuid())
+  email                   String    @unique
+  passwordHash            String?   // Null for OAuth-only users
+  name                    String
+  phone                   String?
+  notes                   String?   @db.Text
+  role                    UserRole  @default(USER)
+  isActive                Boolean   @default(true)
+
+  // OAuth fields
+  oauthProvider           String?   // 'google', 'facebook', etc.
+  oauthId                 String?
+
+  // Push notification token
+  fcmToken                String?
+
+  // Notification preferences (JSONB)
+  notificationPreferences Json?     @default("{\"push\":true,\"sms\":true,\"email\":true,\"inApp\":true}")
+
+  // Timestamps
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+  lastLoginAt             DateTime?
+
+  // Relations
+  createdProjects         Project[]             @relation("ProjectCreator")
+  assignedProjects        Project[]             @relation("ProjectAssignee")
+  projectAcceptances      ProjectAcceptance[]
+  notifications           Notification[]
+  sentInvitations         AppInvitation[]
+  auditLogs               AuditLog[]
+
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
+  @@map("users")
+}
+
+// ============================================
+// PROJECT MANAGEMENT
+// ============================================
+
+enum ProjectStatus {
+  PENDING     // Awaiting user acceptances
+  APPROVED    // Enough acceptances received
+  ASSIGNED    // Assigned to a user
+  DELETED     // Soft deleted
+}
+
+model Project {
+  id                  String              @id @default(uuid())
+  title               String
+  description         String              @db.Text
+  proposedAmount      Decimal             @db.Decimal(15, 2)
+  requiredApprovals   Int                 @default(2)
+  currentApprovals    Int                 @default(0)
+  status              ProjectStatus       @default(PENDING)
+
+  // Creator and assignee
+  createdById         String
+  createdBy           User                @relation("ProjectCreator", fields: [createdById], references: [id])
+  assignedToId        String?
+  assignedTo          User?               @relation("ProjectAssignee", fields: [assignedToId], references: [id])
+
+  // Reminder tracking
+  reminderSentAt      DateTime?
+
+  // Soft delete
+  deletedAt           DateTime?
+
+  // Timestamps
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  // Relations
+  attachments         ProjectAttachment[]
+  acceptances         ProjectAcceptance[]
+  notifications       Notification[]
+
+  @@index([createdById])
+  @@index([assignedToId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("projects")
+}
+
+// ============================================
+// FILE ATTACHMENTS
+// ============================================
+
+model ProjectAttachment {
+  id               String    @id @default(uuid())
+  projectId        String
+  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  filename         String    // Generated filename
+  originalFilename String    // Original user filename
+  fileType         String    // MIME type
+  fileSize         Int       // Size in bytes
+  storageUrl       String    // S3 URL
+
+  uploadedAt       DateTime  @default(now())
+
+  @@index([projectId])
+  @@map("project_attachments")
+}
+
+// ============================================
+// PROJECT ACCEPTANCES
+// ============================================
+
+model ProjectAcceptance {
+  id          String    @id @default(uuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+
+  acceptedAt  DateTime  @default(now())
+  notes       String?   @db.Text
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+  @@map("project_acceptances")
+}
+
+// ============================================
+// NOTIFICATION SYSTEM
+// ============================================
+
+enum NotificationType {
+  PROJECT_SUBMITTED   // New project available
+  PROJECT_ASSIGNED    // Project assigned to you
+  PROJECT_ACCEPTED    // User accepted your project (admin notification)
+  REMINDER            // 2-day reminder for pending approvals
+  PROJECT_DELETED     // Project was deleted
+  PROJECT_DECLINED    // Project assigned to someone else
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model Notification {
+  id          String              @id @default(uuid())
+  userId      String
+  user        User                @relation(fields: [userId], references: [id])
+  projectId   String?
+  project     Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  type        NotificationType
+  title       String
+  message     String              @db.Text
+
+  // Channels to send through (JSONB array)
+  channels    Json                @default("[\"push\",\"sms\",\"email\",\"inApp\"]")
+
+  status      NotificationStatus  @default(PENDING)
+  isRead      Boolean             @default(false)
+  readAt      DateTime?
+
+  createdAt   DateTime            @default(now())
+  sentAt      DateTime?
+
+  // Relations
+  deliveries  NotificationDelivery[]
+
+  @@index([userId])
+  @@index([projectId])
+  @@index([status])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ============================================
+// NOTIFICATION DELIVERY TRACKING
+// ============================================
+
+enum DeliveryChannel {
+  PUSH
+  SMS
+  EMAIL
+}
+
+enum DeliveryStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
+model NotificationDelivery {
+  id              String            @id @default(uuid())
+  notificationId  String
+  notification    Notification      @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  channel         DeliveryChannel
+  status          DeliveryStatus    @default(PENDING)
+  errorMessage    String?           @db.Text
+
+  attemptedAt     DateTime          @default(now())
+  deliveredAt     DateTime?
+
+  @@index([notificationId])
+  @@index([channel])
+  @@index([status])
+  @@map("notification_deliveries")
+}
+
+// ============================================
+// APP INVITATIONS
+// ============================================
+
+enum InviteStatus {
+  PENDING
+  OPENED
+  INSTALLED
+}
+
+model AppInvitation {
+  id            String        @id @default(uuid())
+  adminId       String
+  admin         User          @relation(fields: [adminId], references: [id])
+
+  invitedEmail  String?
+  invitedPhone  String?
+
+  inviteToken   String        @unique
+  sentVia       String        // 'email' or 'sms'
+  status        InviteStatus  @default(PENDING)
+
+  createdAt     DateTime      @default(now())
+  openedAt      DateTime?
+  installedAt   DateTime?
+
+  @@index([adminId])
+  @@index([inviteToken])
+  @@map("app_invitations")
+}
+
+// ============================================
+// AUDIT LOGGING
+// ============================================
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  action      String    // 'create', 'update', 'delete', 'login', etc.
+  entityType  String    // 'project', 'user', 'acceptance', etc.
+  entityId    String?
+
+  metadata    Json?     // Additional context
+  ipAddress   String?
+  userAgent   String?   @db.Text
+
+  createdAt   DateTime  @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
