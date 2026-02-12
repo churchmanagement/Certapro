@@ -259,18 +259,32 @@ Integration points:
 
 See `NOTIFICATION_SYSTEM.md` for complete documentation.
 
+## Reminder Cron Job (Implemented)
+
+Automated reminder system for pending projects:
+- **Schedule**: Configurable via `REMINDER_CRON_SCHEDULE` (default: daily at 9 AM)
+- **Threshold**: Configurable days before reminder (default: 2 days)
+- **Smart Targeting**: Only notifies users who haven't accepted
+- **Re-reminders**: Can remind again if project still pending
+- **Multi-channel**: Uses notification orchestrator (push, SMS, email, in-app)
+- **Admin Control**: 3 endpoints (stats, projects, trigger)
+- **Graceful**: Starts with server, stops on shutdown
+- **Tracked**: Updates `project.reminderSentAt` timestamp
+
+See `REMINDER_SYSTEM.md` for complete documentation.
+
 ## Known Issues
 
 - Frontend workspace not yet created
 - OAuth routes commented out (needs Passport.js configuration)
-- Cron job for 2-day reminders not scheduled (service method ready)
 - Test suite not written (Jest configured but no tests)
 - FCM token cleanup not automated (logged but requires manual removal)
+- Reminder digest mode not implemented (individual notifications per project)
 
 ## Next Implementation Priorities
 
-1. **Reminder Cron Job** - Schedule 2-day reminders for pending projects
-2. **Frontend Setup** - Initialize Next.js 15 workspace
-3. **API Tests** - Jest integration tests for all endpoints
-4. **User Preferences UI** - Frontend for managing notification settings
+1. **Frontend Setup** - Initialize Next.js 15 workspace
+2. **API Tests** - Jest integration tests for all endpoints
+3. **User Preferences UI** - Frontend for managing notification settings
+4. **Admin Dashboard** - Analytics and monitoring UI
 5. **Webhook System** - External integrations for project events

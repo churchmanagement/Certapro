@@ -1,6 +1,7 @@
 import app from './app';
 import { config, validateConfig } from './config';
 import { connectDatabase, disconnectDatabase } from './config/database';
+import reminderService from './services/reminder.service';
 import logger from './utils/logger';
 
 // Validate environment variables
@@ -25,9 +26,16 @@ const startServer = async () => {
       logger.info(`🌐 Frontend URL: ${config.frontendUrl}`);
     });
 
+    // Start reminder cron job
+    reminderService.start();
+    logger.info(`⏰ Reminder cron job initialized (${config.reminder.thresholdDays} day threshold)`);
+
     // Graceful shutdown
     const gracefulShutdown = async (signal: string) => {
       logger.info(`${signal} received. Starting graceful shutdown...`);
+
+      // Stop cron job
+      reminderService.stop();
 
       server.close(async () => {
         logger.info('HTTP server closed');

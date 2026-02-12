@@ -50,12 +50,14 @@ import userRoutes from './routes/user.routes';
 import attachmentRoutes from './routes/attachment.routes';
 import projectRoutes from './routes/project.routes';
 import notificationRoutes from './routes/notification.routes';
+import reminderRoutes from './routes/reminder.routes';
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/attachments', attachmentRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/reminders', reminderRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
